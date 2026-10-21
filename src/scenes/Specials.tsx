@@ -130,10 +130,11 @@ export type ChartProps = {
   decimals?: number;
   notes?: { i: number; text: string; at: number }[];
   bgSrc?: string;
+  showValue?: boolean;
   dur: number;
 };
 
-export const ChartScene: React.FC<ChartProps> = ({ palette, title, sub, data, at = 8, len = 60, kind = "line", color, prefix = "", suffix = "", decimals = 2, notes = [], bgSrc, dur }) => {
+export const ChartScene: React.FC<ChartProps> = ({ palette, title, sub, data, at = 8, len = 60, kind = "line", color, prefix = "", suffix = "", decimals = 2, notes = [], bgSrc, showValue = true, dur }) => {
   const f = useCurrentFrame();
   const p = pal(palette);
   const col = color ?? p.a;
@@ -194,7 +195,7 @@ export const ChartScene: React.FC<ChartProps> = ({ palette, title, sub, data, at
               <text key={i} x={sx(i)} y={ch + 50} fill="#fff" opacity={0.75} fontFamily={MONT} fontWeight={700} fontSize={26} textAnchor="middle">{d.x}</text>
             ))}
           </svg>
-          {kind === "line" && k > 0 ? (
+          {kind === "line" && k > 0 && showValue ? (
             <div style={{ position: "absolute", left: head[0], top: head[1], transform: "translate(-50%,-50%)" }}>
               <div style={{ width: 30, height: 30, borderRadius: "50%", background: "#fff", boxShadow: `0 0 30px ${col}, 0 0 60px ${col}` }} />
               <div style={{ position: "absolute", left: 40, top: -80, fontFamily: ANTON, fontSize: 72, color: "#fff", whiteSpace: "nowrap", textShadow: `0 0 24px ${col}, 0 6px 20px #000` }}>

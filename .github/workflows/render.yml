@@ -11,6 +11,9 @@ on:
       scale:
         description: "render scale (1 = 1080p)"
         default: "1"
+      range:
+        description: "frame range a-b to split into chunks (blank = whole video)"
+        default: ""
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -43,10 +46,18 @@ jobs:
       - run: sudo apt-get update -qq && sudo apt-get install -y -qq libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libasound2t64 libpango-1.0-0 libcairo2 fonts-noto-color-emoji > /dev/null || true
       - run: npx remotion browser ensure
       - name: Render chunk
+        shell: bash
         run: |
-          FR=$(node -e "const d=require('./src/data/scenes.json');const n=${{ inputs.total }};const i=${{ matrix.chunk }};const per=Math.ceil(d.frames/n);const a=i*per;const b=Math.min(d.frames,(i+1)*per)-1;console.log(a+'-'+b)")
+          set -o pipefail
+          FR=$(node -e "const d=require('./src/data/scenes.json');const n=${{ inputs.total }};const i=${{ matrix.chunk }};const r='${{ inputs.range }}';const s0=r?+r.split('-')[0]:0;const e0=r?+r.split('-')[1]+1:d.frames;const per=Math.ceil((e0-s0)/n);const a=s0+i*per;const b=Math.min(e0,s0+(i+1)*per)-1;console.log(a+'-'+b)")
           echo "frames $FR"
-          NODE_OPTIONS=--dns-result-order=ipv4first npx remotion render src/index.ts Doc out/chunk_$(printf %02d ${{ matrix.chunk }}).mp4 --frames=$FR --muted --codec=h264 --crf=17 --x264-preset=medium --pixel-format=yuv420p --scale=${{ inputs.scale }} --concurrency=4 --log=info 2>&1 | grep -vE "^\s*Rendered [0-9]+/" | tail -40
+          NODE_OPTIONS=--dns-result-order=ipv4first npx remotion render src/index.ts Doc out/chunk_$(printf %02d ${{ matrix.chunk }}).mp4 --frames=$FR --muted --codec=h264 --crf=17 --x264-preset=medium --pixel-format=yuv420p --scale=${{ inputs.scale }} --concurrency=4 --timeout=120000 --log=info 2>&1 | grep --line-buffered -vE "Rendered [0-9]+/|Encoded [0-9]+/" | tail -60
+      - name: Verify chunk
+        shell: bash
+        run: |
+          f=out/chunk_$(printf %02d ${{ matrix.chunk }}).mp4
+          test -s $f
+          ffprobe -v error -show_entries format=duration:stream=nb_frames -of compact $f
       - uses: actions/upload-artifact@v4
         with:
           name: chunk_${{ matrix.chunk }}

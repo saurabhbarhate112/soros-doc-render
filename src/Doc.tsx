@@ -61,15 +61,15 @@ const Transitioned: React.FC<{ s: SceneJ; nextTr?: string }> = ({ s, nextTr }) =
   // exit (anticipate next transition)
   const rem = s.dur - f;
   if (nextTr === "whip" && rem < 6) {
-    const t = interpolate(rem, [6, 0], [0, 1], { ...clamp, easing: EASE.in });
+    const t = interpolate(rem, [0, 6], [1, 0], { ...clamp, easing: EASE.out });
     transform += ` translateX(${-t * 380}px)`;
     filter += ` blur(${t * 22}px)`;
   } else if (nextTr === "zoom" && rem < 6) {
-    const t = interpolate(rem, [6, 0], [0, 1], { ...clamp, easing: EASE.in });
+    const t = interpolate(rem, [0, 6], [1, 0], { ...clamp, easing: EASE.out });
     transform += ` scale(${1 + t * 0.25})`;
     filter += ` blur(${t * 12}px) brightness(${1 + t * 0.8})`;
   } else if (nextTr === "blur" && rem < 8) {
-    const t = interpolate(rem, [8, 0], [0, 1], clamp);
+    const t = interpolate(rem, [0, 8], [1, 0], clamp);
     filter += ` blur(${t * 20}px)`;
   }
   return (

@@ -8,11 +8,17 @@ import { TextBlock, TextSpec } from "./Text";
 import { Ticker, GridFloor } from "./Decor";
 import { Icon } from "./Icons";
 import { Counter } from "../scenes/Specials";
+import { GradMapDef, PaperNote, PhoneMock, PopBg, Scribble } from "./Pop";
 
-export type Grade = "natural" | "vivid" | "mono" | "tint" | "duo" | "dark" | "none";
+export type Grade = "natural" | "vivid" | "mono" | "tint" | "duo" | "dark" | "none" | "gmap";
 
 export type LayerSpec = {
-  kind: "img" | "cutout" | "video" | "atmos" | "text" | "ticker" | "grid" | "solid" | "icon" | "frame" | "line" | "label" | "glow" | "counter";
+  kind: "img" | "cutout" | "video" | "atmos" | "text" | "ticker" | "grid" | "solid" | "icon" | "frame" | "line" | "label" | "glow" | "counter" | "pop" | "scribble" | "phone" | "note";
+  shape?: string;
+  rays?: boolean;
+  dots?: boolean;
+  sticker?: string;
+  c3?: string;
   value?: number;
   prefix?: string;
   suffix?: string;
@@ -87,6 +93,9 @@ const LayerBody: React.FC<{ l: LayerSpec; dur: number; palette?: string }> = ({ 
   if (l.grade === "vivid") filt.push("saturate(1.4) contrast(1.15) brightness(1.03)");
   if (l.grade === "dark") filt.push("saturate(1.05) contrast(1.15) brightness(0.72)");
   if (l.blur) filt.push(`blur(${l.blur}px)`);
+  const gmId = l.grade === "gmap" ? "gm" + (tint + (l.tint2 ?? p.b)).replace(/#/g, "") : "";
+  if (l.grade === "gmap") filt.push(`url(#${gmId})`);
+  if (l.kind === "cutout" && l.sticker) filt.push(`drop-shadow(5px 0 0 ${l.sticker}) drop-shadow(-5px 0 0 ${l.sticker}) drop-shadow(0 5px 0 ${l.sticker}) drop-shadow(0 -5px 0 ${l.sticker})`);
   if (l.kind === "cutout" && l.glow) filt.push(`drop-shadow(0 0 2px ${l.glow}) drop-shadow(0 0 22px ${l.glow}aa)`);
   if (l.kind === "cutout" && l.shadow !== false) filt.push("drop-shadow(18px 26px 26px rgba(0,0,0,0.55))");
 
@@ -120,6 +129,11 @@ const LayerBody: React.FC<{ l: LayerSpec; dur: number; palette?: string }> = ({ 
     overflow: l.kind === "cutout" ? "visible" : "hidden",
   };
 
+  const gmDef = l.grade === "gmap" ? <GradMapDef id={gmId} dark={tint} light={l.tint2 ?? p.b} /> : null;
+  if (l.kind === "pop") return <PopBg w={l.w ?? W} h={l.h ?? H} c1={l.color ?? p.bg1} c2={l.c2 ?? p.a} c3={l.c3} rays={l.rays !== false} dots={l.dots !== false} seed={l.seed} />;
+  if (l.kind === "scribble") return <Scribble shape={l.shape ?? "arrow"} w={l.w ?? 300} color={l.color ?? p.accent} at={l.at ?? 0} flip={(l as any).flip} seed={l.seed ?? String(l.x)} />;
+  if (l.kind === "phone") return <PhoneMock w={l.w ?? 360} name={l.label ?? ""} sub={l.sub} at={l.at ?? 0} accent={l.color ?? p.a} />;
+  if (l.kind === "note") return <PaperNote w={l.w ?? 700} text={l.label ?? ""} sub={l.sub} rot={l.rot} />;
   if (l.kind === "img" || l.kind === "cutout") {
     return (
       <div
@@ -142,6 +156,7 @@ const LayerBody: React.FC<{ l: LayerSpec; dur: number; palette?: string }> = ({ 
             }}
           />
           {tintOverlay}
+          {gmDef}
         </div>
       </div>
     );
@@ -158,6 +173,7 @@ const LayerBody: React.FC<{ l: LayerSpec; dur: number; palette?: string }> = ({ 
           objectFit="cover" style={{ width: "100%", height: "100%", filter: filt.join(" ") || undefined }}
         />
         {tintOverlay}
+        {gmDef}
       </div>
     );
   }
@@ -303,7 +319,7 @@ export const Stage: React.FC<StageProps> = ({ layers, cam, camKeys, perspective 
                   left: 0,
                   top: 0,
                   transformStyle: "preserve-3d",
-                  transform: `translate3d(${(l.x ?? 0) + dx + ap.dx}px, ${(l.y ?? 0) + dy + ap.dy}px, ${z}px) translate(-50%, -50%) scale(${k * ap.s * ds}) rotateZ(${(l.rot ?? 0) + dr + ap.rz}deg) rotateY(${(l.ry ?? 0) + ap.ry}deg) rotateX(${l.rx ?? 0}deg)`,
+                  transform: `translate3d(${(l.x ?? 0) + dx + ap.dx}px, ${(l.y ?? 0) + dy + ap.dy}px, ${z}px) translate(-50%, -50%) scale(${k * ap.s * ds}) rotateZ(${(l.kind === "note" ? 0 : l.rot ?? 0) + dr + ap.rz}deg) rotateY(${(l.ry ?? 0) + ap.ry}deg) rotateX(${l.rx ?? 0}deg)`,
                   opacity: (l.opacity ?? 1) * ap.o,
                   clipPath: ap.clip,
                   mixBlendMode: (l.blend as any) ?? undefined,
