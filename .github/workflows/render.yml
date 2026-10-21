@@ -1,0 +1,55 @@
+name: render
+on:
+  workflow_dispatch:
+    inputs:
+      chunks:
+        description: "JSON array of chunk indices to render (e.g. [0,1,2]) or 'all'"
+        default: "all"
+      total:
+        description: "number of chunks"
+        default: "20"
+      scale:
+        description: "render scale (1 = 1080p)"
+        default: "1"
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - id: m
+        run: |
+          if [ "${{ inputs.chunks }}" = "all" ]; then
+            python3 -c "import json;print('matrix='+json.dumps(list(range(int('${{ inputs.total }}')))))" >> $GITHUB_OUTPUT
+          else
+            echo "matrix=${{ inputs.chunks }}" >> $GITHUB_OUTPUT
+          fi
+  render:
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        chunk: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libgbm1 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libasound2t64 libpango-1.0-0 libcairo2 fonts-noto-color-emoji > /dev/null || true
+      - run: npx remotion browser ensure
+      - name: Render chunk
+        run: |
+          FR=$(node -e "const d=require('./src/data/scenes.json');const n=${{ inputs.total }};const i=${{ matrix.chunk }};const per=Math.ceil(d.frames/n);const a=i*per;const b=Math.min(d.frames,(i+1)*per)-1;console.log(a+'-'+b)")
+          echo "frames $FR"
+          NODE_OPTIONS=--dns-result-order=ipv4first npx remotion render src/index.ts Doc out/chunk_$(printf %02d ${{ matrix.chunk }}).mp4 --frames=$FR --muted --codec=h264 --crf=17 --x264-preset=medium --pixel-format=yuv420p --scale=${{ inputs.scale }} --concurrency=4 --log=info 2>&1 | grep -vE "^\s*Rendered [0-9]+/" | tail -40
+      - uses: actions/upload-artifact@v4
+        with:
+          name: chunk_${{ matrix.chunk }}
+          path: out/chunk_*.mp4
+          retention-days: 3
+          compression-level: 0
